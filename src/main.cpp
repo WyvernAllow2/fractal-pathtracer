@@ -129,8 +129,26 @@ static GLuint compile_compute_program(const char* filename) {
 	return program;
 }
 
+static GLuint create_output_texture(int width, int height) {
+	GLuint texture;
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, width, height);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	return texture;
+}
+
 static void glfw_error_callback(int error_code, const char* description) {
 	std::cerr << "GLFW: " << description << "\n";
+}
+
+template <typename T>
+constexpr T div_up(T a, T b) {
+	return (a + b - 1) / b;
 }
 
 int main() {
@@ -172,6 +190,20 @@ int main() {
 		return EXIT_FAILURE;
 	}
 
+	GLuint pathtracer = compile_compute_program("shaders/pathtracer.comp");
+	if (!pathtracer) {
+		std::cerr << "compile_compute_program() failed\n";
+		return EXIT_FAILURE;
+	}
+
+	GLuint output_texture = create_output_texture(mode->width, mode->height);
+	if (!output_texture) {
+		std::cerr << "output_texture() failed\n";
+		return EXIT_FAILURE;
+	}
+
+	glBindImageTexture(0, output_texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
 	float current_time = (float)glfwGetTime();
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -180,15 +212,35 @@ int main() {
 		float delta_time = new_time - current_time;
 		current_time = new_time;
 
-		glClear(GL_COLOR_BUFFER_BIT);
+		glUseProgram(pathtracer);
 
+		int num_groups_x = div_up(mode->width, 8);
+		int num_groups_y = div_up(mode->height, 4);
+		int num_groups_z = 1;
+
+		glDispatchCompute(num_groups_x, num_groups_y, num_groups_z);
+		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+		glUseProgram(0);
+
+		glClear(GL_COLOR_BUFFER_BIT);
 		glBindVertexArray(vao);
 		glUseProgram(fullscreen_shader);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, output_texture);
+		glUniform1i(glGetUniformLocation(fullscreen_shader, "u_texture"), 0);
+
 		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glUseProgram(0);
+		glBindVertexArray(0);
 
 		glfwSwapBuffers(window);
 	}
 
+	glDeleteProgram(pathtracer);
+	glDeleteProgram(fullscreen_shader);
+	glDeleteVertexArrays(1, &vao);
 	glfwDestroyWindow(window);
 	glfwTerminate();
 }

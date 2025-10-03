@@ -2,6 +2,8 @@
 out vec4 v_frag;
 in vec2 v_uv;
 
+uniform sampler2D u_texture;
+
 void main() {
-	v_frag = vec4(v_uv, 0.0, 1.0);
+	v_frag = texture(u_texture, v_uv);
 }
