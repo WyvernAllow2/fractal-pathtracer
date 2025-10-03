@@ -29,10 +29,14 @@ endif()
 
 add_subdirectory(deps/glfw)
 add_subdirectory(deps/glad)
+add_subdirectory(deps/imgui)
+
+target_link_libraries(imgui PRIVATE glfw)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     glfw
     glad
+    imgui
 )
 
 add_custom_target(copy_shaders
