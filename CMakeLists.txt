@@ -34,3 +34,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     glfw
     glad
 )
+
+add_custom_target(copy_shaders
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/shaders ${CMAKE_CURRENT_BINARY_DIR}/shaders
+)
+
+add_dependencies(${PROJECT_NAME} copy_shaders)
