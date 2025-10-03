@@ -26,3 +26,9 @@ else()
         -Wpedantic
     )
 endif()
+
+add_subdirectory(deps/glfw)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    glfw
+)
